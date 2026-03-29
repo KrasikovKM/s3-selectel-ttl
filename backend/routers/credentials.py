@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError, EndpointResolutionError, NoCredentialsError
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -57,6 +58,10 @@ def test_credential(credential_id: int, db: Session = Depends(get_db)):
             endpoint_url=credential.endpoint_url,
             aws_access_key_id=credential.access_key,
             aws_secret_access_key=credential.secret_key,
+            config=Config(
+                signature_version="s3v4",
+                s3={"addressing_style": "path"},
+            ),
         )
         s3.head_bucket(Bucket=credential.bucket_name)
         return {"success": True, "message": "Подключение успешно. Бакет доступен."}

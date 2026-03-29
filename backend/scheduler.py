@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import boto3
+from botocore.config import Config
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.jobstores.base import JobLookupError
@@ -62,6 +63,10 @@ def run_cleanup_job(rule_id: int) -> None:
             endpoint_url=credential.endpoint_url,
             aws_access_key_id=credential.access_key,
             aws_secret_access_key=credential.secret_key,
+            config=Config(
+                signature_version="s3v4",
+                s3={"addressing_style": "path"},
+            ),
         )
 
         cutoff = datetime.now(timezone.utc) - timedelta(days=rule.ttl_days)
