@@ -31,10 +31,19 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
     depends_on:
       - backend
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.s3ttl.rule=Host(`s3-ttl.alavenir.space`)"
+      - "traefik.http.routers.s3ttl.entrypoints=websecure"
+      - "traefik.http.routers.s3ttl.tls.certresolver=letsencrypt"
+      - "traefik.http.services.s3ttl.loadbalancer.server.port=80"
 
 volumes:
   mysql_data:
+
+networks:
+  default:
+    name: dokploy-network
+    external: true
