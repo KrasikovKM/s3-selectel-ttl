@@ -2,10 +2,13 @@ import logging
 from typing import List
 
 import boto3
+import urllib3
 from botocore.config import Config
 from botocore.exceptions import ClientError, EndpointResolutionError, NoCredentialsError
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from database import get_db
 from models import S3Credential
@@ -58,33 +61,72 @@ def test_credential(credential_id: int, db: Session = Depends(get_db)):
             endpoint_url=credential.endpoint_url,
             aws_access_key_id=credential.access_key,
             aws_secret_access_key=credential.secret_key,
+            verify=False,
             config=Config(
                 signature_version="s3v4",
                 s3={"addressing_style": "path"},
             ),
         )
-        s3.head_bucket(Bucket=credential.bucket_name)
-        return {"success": True, "message": "Подключение успешно. Бакет доступен."}
-    except ClientError as e:
-        error_code = e.response.get("Error", {}).get("Code", "")
-        error_msg = e.response.get("Error", {}).get("Message", str(e))
-        if error_code == "403":
+
+        # Пробуем получить список всех бакетов
+        available_buckets = []
+        try:
+            response = s3.list_buckets()
+            available_buckets = [b["Name"] for b in response.get("Buckets", [])]
+        except ClientError:
+            pass
+
+        # Проверяем конкретный бакет через head_bucket
+        try:
+            s3.head_bucket(Bucket=credential.bucket_name)
             return {
-                "success": False,
-                "message": f"Доступ запрещён (403): {error_msg}",
+                "success": True,
+                "message": f"Подключение успешно. Бакет «{credential.bucket_name}» доступен.",
+                "available_buckets": available_buckets,
             }
-        elif error_code == "404":
-            return {
-                "success": False,
-                "message": f"Бакет не найден (404): {credential.bucket_name}",
-            }
-        else:
-            return {
-                "success": False,
-                "message": f"Ошибка S3 ({error_code}): {error_msg}",
-            }
+        except ClientError as e:
+            error_code = e.response.get("Error", {}).get("Code", "")
+            if error_code in ("404", "NoSuchBucket"):
+                # Fallback: пробуем list_objects_v2 — вдруг endpoint уже скопирован в бакет
+                try:
+                    s3.list_objects_v2(Bucket=credential.bucket_name, MaxKeys=1)
+                    return {
+                        "success": True,
+                        "message": f"Подключение успешно (list_objects). Бакет «{credential.bucket_name}» доступен.",
+                        "available_buckets": available_buckets,
+                    }
+                except ClientError:
+                    pass
+
+                hint = ""
+                if available_buckets:
+                    hint = f" Доступные бакеты: {', '.join(available_buckets)}."
+                else:
+                    hint = (
+                        " Список бакетов недоступен. "
+                        "Возможно, указан CDN-URL вместо S3 API endpoint. "
+                        "Для Selectel используйте https://s3.selcdn.ru"
+                    )
+                return {
+                    "success": False,
+                    "message": f"Бакет «{credential.bucket_name}» не найден (404).{hint}",
+                    "available_buckets": available_buckets,
+                }
+            elif error_code == "403":
+                return {
+                    "success": False,
+                    "message": f"Доступ к бакету «{credential.bucket_name}» запрещён (403). Проверьте права ключа.",
+                    "available_buckets": available_buckets,
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Ошибка S3 ({error_code}): {e.response.get('Error', {}).get('Message', str(e))}",
+                    "available_buckets": available_buckets,
+                }
+
     except NoCredentialsError:
-        return {"success": False, "message": "Неверные учётные данные."}
+        return {"success": False, "message": "Неверные учётные данные (access key / secret key)."}
     except Exception as e:
         logger.exception(f"Test connection error for credential {credential_id}: {e}")
         return {"success": False, "message": f"Ошибка подключения: {str(e)}"}

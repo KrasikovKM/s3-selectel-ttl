@@ -5,6 +5,25 @@ const api = axios.create({
   timeout: 60000,
 })
 
+api.interceptors.request.use((config) => {
+  const password = sessionStorage.getItem('auth_password')
+  if (password) {
+    config.headers.Authorization = `Basic ${btoa(`admin:${password}`)}`
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && !error.config.url?.includes('/login')) {
+      sessionStorage.removeItem('auth_password')
+      window.location.reload()
+    }
+    return Promise.reject(error)
+  }
+)
+
 // ---- Types ----
 
 export interface Credential {
@@ -84,6 +103,7 @@ export interface PreviewResult {
 export interface TestResult {
   success: boolean
   message: string
+  available_buckets?: string[]
 }
 
 // ---- Credentials API ----

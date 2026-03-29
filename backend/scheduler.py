@@ -3,7 +3,10 @@ from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import boto3
+import urllib3
 from botocore.config import Config
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.jobstores.base import JobLookupError
@@ -63,6 +66,7 @@ def run_cleanup_job(rule_id: int) -> None:
             endpoint_url=credential.endpoint_url,
             aws_access_key_id=credential.access_key,
             aws_secret_access_key=credential.secret_key,
+            verify=False,
             config=Config(
                 signature_version="s3v4",
                 s3={"addressing_style": "path"},

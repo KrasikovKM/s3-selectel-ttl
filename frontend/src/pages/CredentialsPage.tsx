@@ -79,9 +79,35 @@ const CredentialsPage: React.FC = () => {
     try {
       const result = await credentialsApi.test(id)
       if (result.success) {
-        message.success(result.message)
+        const bucketList = result.available_buckets?.length
+          ? ` (все бакеты: ${result.available_buckets.join(', ')})`
+          : ''
+        message.success(result.message + bucketList, 6)
       } else {
-        message.error(result.message)
+        const bucketHint = result.available_buckets?.length
+          ? `\nДоступные бакеты: ${result.available_buckets.join(', ')}`
+          : ''
+        Modal.error({
+          title: 'Ошибка подключения',
+          content: (
+            <div>
+              <p>{result.message}</p>
+              {result.available_buckets && result.available_buckets.length > 0 && (
+                <div>
+                  <p style={{ marginBottom: 4 }}><strong>Доступные бакеты:</strong></p>
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {result.available_buckets.map((b: string) => (
+                      <li key={b} style={{ fontFamily: 'monospace' }}>{b}</li>
+                    ))}
+                  </ul>
+                  <p style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
+                    Обновите название бакета в подключении.
+                  </p>
+                </div>
+              )}
+            </div>
+          ),
+        })
       }
     } catch {
       message.error('Ошибка при проверке подключения')
@@ -219,12 +245,13 @@ const CredentialsPage: React.FC = () => {
             <Input placeholder="Мой бакет Selectel" />
           </Form.Item>
           <Form.Item
-            label="Endpoint URL"
+            label="Endpoint URL (S3 API)"
             name="endpoint_url"
             rules={[
               { required: true, message: 'Введите endpoint URL' },
               { type: 'url', message: 'Введите корректный URL' },
             ]}
+            extra="S3 API endpoint, не CDN-ссылка. Для Selectel: https://s3.selcdn.ru"
           >
             <Input placeholder="https://s3.selcdn.ru" />
           </Form.Item>

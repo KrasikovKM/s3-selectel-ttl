@@ -23,6 +23,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: mysql+pymysql://${MYSQL_USER:-s3ttl}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE:-s3ttl}
+      APP_PASSWORD: ${APP_PASSWORD:-Digital24!}
     depends_on:
       db:
         condition: service_healthy

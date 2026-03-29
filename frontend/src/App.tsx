@@ -5,6 +5,7 @@ import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-
 import CredentialsPage from './pages/CredentialsPage'
 import RulesPage from './pages/RulesPage'
 import JobsPage from './pages/JobsPage'
+import LoginPage from './pages/LoginPage'
 
 const { Sider, Content } = Layout
 const { Title } = Typography
@@ -13,6 +14,20 @@ const App: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => sessionStorage.getItem('auth_password') !== null
+  )
+
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        onLogin={(password) => {
+          sessionStorage.setItem('auth_password', password)
+          setIsAuthenticated(true)
+        }}
+      />
+    )
+  }
 
   const selectedKey = () => {
     if (location.pathname.startsWith('/credentials')) return 'credentials'
