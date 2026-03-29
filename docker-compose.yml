@@ -11,6 +11,8 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - internal
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 5s
@@ -24,6 +26,8 @@ services:
     environment:
       DATABASE_URL: mysql+pymysql://${MYSQL_USER:-s3ttl}:${MYSQL_PASSWORD}@db:3306/${MYSQL_DATABASE:-s3ttl}
       APP_PASSWORD: ${APP_PASSWORD:-Digital24!}
+    networks:
+      - internal
     depends_on:
       db:
         condition: service_healthy
@@ -31,19 +35,17 @@ services:
   frontend:
     build: ./frontend
     restart: unless-stopped
+    networks:
+      - internal
+      - dokploy-network
     depends_on:
       - backend
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.s3ttl.rule=Host(`s3-ttl.alavenir.space`)"
-      - "traefik.http.routers.s3ttl.entrypoints=websecure"
-      - "traefik.http.routers.s3ttl.tls.certresolver=letsencrypt"
-      - "traefik.http.services.s3ttl.loadbalancer.server.port=80"
 
 volumes:
   mysql_data:
 
 networks:
-  default:
-    name: dokploy-network
+  internal:
+    driver: bridge
+  dokploy-network:
     external: true
