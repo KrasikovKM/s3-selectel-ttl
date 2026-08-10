@@ -41,8 +41,24 @@ services:
     depends_on:
       - backend
 
+  ssl-renewer:
+    build: ./ssl-renewer
+    restart: unless-stopped
+    environment:
+      SEL_IAM_USER: ${SEL_IAM_USER}
+      SEL_IAM_PASSWORD_B64: ${SEL_IAM_PASSWORD_B64}
+      SEL_ACCOUNT: ${SEL_ACCOUNT}
+      SEL_PROJECT_ID: ${SEL_PROJECT_ID}
+      CERT_DOMAINS: ${CERT_DOMAINS}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@alavenir.space}
+    volumes:
+      - acme_data:/root/.acme.sh
+    networks:
+      - internal
+
 volumes:
   mysql_data:
+  acme_data:
 
 networks:
   internal:
